@@ -66,9 +66,9 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          mv dist aws-granted
-          zip -r "aws-granted-${TAG}.zip" aws-granted -x '*.map'
-          sha256sum "aws-granted-${TAG}.zip" > "aws-granted-${TAG}.zip.sha256"
+          mv dist granted
+          zip -r "granted-${TAG}.zip" granted -x '*.map'
+          sha256sum "granted-${TAG}.zip" > "granted-${TAG}.zip.sha256"
 
       - name: Extract release notes
         env:
@@ -95,4 +95,4 @@ jobs:
             --verify-tag \
             --title "$TAG" \
             --notes-file release-notes.md \
-            "aws-granted-${TAG}.zip" "aws-granted-${TAG}.zip.sha256"
+            "granted-${TAG}.zip" "granted-${TAG}.zip.sha256"

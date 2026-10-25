@@ -1,4 +1,4 @@
-# aws-granted (Raycast extension) — single entrypoint for build, test, lint,
+# granted (Raycast/Tinycast extension) — single entrypoint for build, test, lint,
 # security and release. Targets wrap the scripts in package.json;
 # run `make` for the list.
 
@@ -6,10 +6,16 @@
 SHELL := /bin/sh
 
 SEVERITY ?= HIGH,CRITICAL
+DEMO_DIR ?= /tmp/granted-demo
+
+# Official Granted logo (MIT, github.com/fwdcloudsec/granted), pinned by commit
+# and SHA-256. Override both to render a different glyph onto the same tile.
+ICON_SVG_URL    ?= https://raw.githubusercontent.com/fwdcloudsec/granted/278c523bdc5fc0832b0f87302d6be36f7b572cfa/docs/logo.svg
+ICON_SVG_SHA256 ?= dfa3bd14aea1a3be5cf63360d36b7c266755ee51e2c3fd7c75908c5688541624
 
 # Scanners run as throwaway containers — nothing to install locally.
 # The named volume caches Trivy's ~250MB vulnerability DB between runs.
-TRIVY := docker run --rm -v aws-granted-trivy-cache:/root/.cache/trivy
+TRIVY := docker run --rm -v granted-trivy-cache:/root/.cache/trivy
 # gitleaks runs as root over a bind mount owned by another uid; without this
 # git aborts with "detected dubious ownership in repository".
 GITLEAKS_GIT := -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo
@@ -21,7 +27,7 @@ help: ## Show this help
 		/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5); next } \
 		/^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 }' \
 		$(MAKEFILE_LIST)
-	@printf "\n\033[2mVars: SEVERITY\033[0m\n\n"
+	@printf "\n\033[2mVars: SEVERITY DEMO_DIR ICON_SVG_URL ICON_SVG_SHA256\033[0m\n\n"
 
 ##@ 📦 Setup
 
@@ -35,6 +41,21 @@ build: ## Build the extension (ray build)
 
 build-dist: ## Build into dist/ for distribution
 	npm run build:dist
+
+icon: ## Render assets/icon.png (512x512) from the pinned Granted logo
+	@command -v rsvg-convert >/dev/null && command -v magick >/dev/null || { \
+		echo "❌ Needs rsvg-convert and magick: brew install librsvg imagemagick"; exit 1; }
+	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && \
+	curl -fsSL "$(ICON_SVG_URL)" -o "$$tmp/logo.svg" && \
+	echo "$(ICON_SVG_SHA256)  $$tmp/logo.svg" | shasum -a 256 -c - >/dev/null && \
+	rsvg-convert -h 300 "$$tmp/logo.svg" -o "$$tmp/logo.png" && \
+	magick -size 512x512 gradient:'#1d2b22-#0b120d' -alpha set \
+		\( -size 512x512 xc:none -fill white -draw "roundrectangle 0,0 511,511 112,112" \) \
+		-compose DstIn -composite "$$tmp/tile.png" && \
+	magick "$$tmp/tile.png" "$$tmp/logo.png" -gravity center -compose over -composite \
+		-fill none -stroke '#34B53A55' -strokewidth 4 -draw "roundrectangle 2,2 509,509 110,110" \
+		-strip assets/icon.png && \
+	echo "wrote assets/icon.png"
 
 ##@ 🧪 Test
 
@@ -67,10 +88,30 @@ format-check: ## Prettier check on src/ without writing
 dev: ## Load the extension into Raycast with hot reload
 	npm run dev
 
+demo-config: ## Write made-up AWS profiles (for screenshots) to /tmp/granted-demo
+	@mkdir -p "$(DEMO_DIR)"
+	@for p in acme-dev:111111111111:us-east-1 acme-staging:222222222222:us-east-1 \
+		acme-prod:333333333333:us-east-2 acme-data-prod:444444444444:eu-west-1 \
+		acme-security:555555555555:us-east-1 acme-sandbox:666666666666:us-west-2 \
+		acme-shared-services:777777777777:eu-central-1; do \
+		name=$${p%%:*}; rest=$${p#*:}; id=$${rest%%:*}; region=$${rest#*:}; \
+		for role in AdministratorAccess ReadOnlyAccess; do \
+			printf '[profile %s.%s.%s]\nsso_account_id = %s\nregion = %s\n\n' "$$name" "$$id" "$$role" "$$id" "$$region"; \
+		done; \
+	done > "$(DEMO_DIR)/config"
+	@: > "$(DEMO_DIR)/credentials"
+	@echo "wrote $(DEMO_DIR)/config. Set Granted → AWS Folder to $(DEMO_DIR) (clear it when done)."
+
 ##@ 📤 Release
 
-publish: ## Open a PR to raycast/extensions (Raycast Store)
-	npm run publish
+# `ray publish` copies this folder except .git, .github, node_modules and
+# raycast-env.d.ts (it ignores .gitignore, hence `clean`). Its clone of the
+# raycast/extensions fork would inherit a global commit.gpgsign, so signing is
+# turned off and timestamps are UTC for the commits and tags it creates.
+publish: clean ## Open a PR to raycast/extensions (Raycast Store), see CONTRIBUTING.md
+	@[ -z "$$(git status --porcelain)" ] || { echo "❌ Commit or stash your changes first"; exit 1; }
+	GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false \
+		GIT_CONFIG_KEY_1=tag.gpgsign GIT_CONFIG_VALUE_1=false TZ=UTC0 npm run publish
 
 ##@ 🔒 Security
 
@@ -112,5 +153,5 @@ require-docker:
 
 # Every target, no exceptions — a directory sharing a target name (dist/)
 # would otherwise make make treat that target as already up to date.
-.PHONY: help install build build-dist test typecheck verify lint fix-lint format-check dev publish \
+.PHONY: help install build build-dist icon test typecheck verify lint fix-lint format-check dev demo-config publish \
 	audit scan-fs scan-secrets security clean clean-all require-docker

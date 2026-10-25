@@ -60,7 +60,7 @@ async function launch(profile: Profile, service: Service | undefined, region: st
       toast.message = `Finish sign-in in your browser · ${label}`;
     }, 5_000);
     try {
-      await openConsole(options, prefs().assumePath);
+      await openConsole(options, prefs().assumePath, prefs().awsFolder);
       clearTimeout(slow);
       await Promise.all([addRecent("profiles", profile.name), service ? addRecent("services", service.id) : undefined]);
       toast.hide();
@@ -87,13 +87,13 @@ export default function Command() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [fromFiles, recent] = await Promise.all([loadProfilesFromFiles(), getRecent("profiles")]);
+      const [fromFiles, recent] = await Promise.all([loadProfilesFromFiles(prefs().awsFolder), getRecent("profiles")]);
       if (cancelled) return;
       setProfiles(fromFiles);
       setRecentNames(recent);
       // The CLI is slower, so file profiles render first and CLI ones merge in.
       if (prefs().includeAwsCliProfiles !== false) {
-        const fromCli = await loadProfilesFromCli();
+        const fromCli = await loadProfilesFromCli(prefs().awsFolder);
         if (!cancelled && fromCli.length) setProfiles((current) => mergeProfiles(current, fromCli));
       }
       if (!cancelled) setIsLoading(false);
@@ -183,10 +183,15 @@ export default function Command() {
       filtering={false}
       onSearchTextChange={setSearchText}
       searchBarPlaceholder="Search AWS profiles…"
-      navigationTitle="AWS Granted"
     >
       {!isLoading && profiles.length === 0 ? (
-        <List.EmptyView icon={Icon.ExclamationMark} title="No AWS profiles found" description={profileDebugInfo()} />
+        <List.EmptyView
+          icon={Icon.ExclamationMark}
+          title="No AWS profiles found"
+          description={profileDebugInfo(prefs().awsFolder)}
+        />
+      ) : results?.length === 0 ? (
+        <List.EmptyView icon={Icon.MagnifyingGlass} title="No Matching Profiles" />
       ) : results ? (
         <List.Section title="Results" subtitle={String(results.length)}>
           {results.map(renderProfile)}
@@ -279,7 +284,9 @@ function ServiceList({ profile, region: initialRegion }: { profile: Profile; reg
       navigationTitle={`${profile.name} · ${region}`}
       searchBarPlaceholder={`Service for ${profile.name} (${region})…`}
     >
-      {results ? (
+      {results?.length === 0 ? (
+        <List.EmptyView icon={Icon.MagnifyingGlass} title="No Matching Services" />
+      ) : results ? (
         <List.Section title="Results" subtitle={String(results.length)}>
           {results.map((s) => renderService(s, "result"))}
         </List.Section>
@@ -321,6 +328,7 @@ function RegionList({
       navigationTitle={`${profile.name} · Region`}
       searchBarPlaceholder="Search regions…"
     >
+      {shown.length === 0 && <List.EmptyView icon={Icon.MagnifyingGlass} title="No Matching Regions" />}
       {shown.map((region) => (
         <List.Item
           key={region}

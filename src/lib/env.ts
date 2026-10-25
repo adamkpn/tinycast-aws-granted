@@ -51,6 +51,35 @@ function expandHome(path: string): string {
   return path === "~" || path.startsWith("~/") ? join(homedir(), path.slice(1)) : path;
 }
 
+export interface AwsFiles {
+  config: string;
+  credentials: string;
+}
+
+// The "AWS Folder" preference, if it is an absolute (or ~-relative) path.
+function awsFolder(folder?: string): string | undefined {
+  const path = folder?.trim() ? expandHome(folder.trim()) : undefined;
+  return path && isAbsolute(path) ? path : undefined;
+}
+
+// Same precedence as the AWS CLI: AWS_CONFIG_FILE / AWS_SHARED_CREDENTIALS_FILE
+// win, then the AWS Folder preference, then ~/.aws. GUI launchers rarely pass
+// shell env vars, which is why the preference exists.
+export function awsFiles(folder?: string, env: NodeJS.ProcessEnv = process.env): AwsFiles {
+  const dir = awsFolder(folder) ?? join(homedir(), ".aws");
+  return {
+    config: env.AWS_CONFIG_FILE || join(dir, "config"),
+    credentials: env.AWS_SHARED_CREDENTIALS_FILE || join(dir, "credentials"),
+  };
+}
+
+// Env for `assume` and `aws` so they read the same files the list shows.
+export function awsFilesEnv(folder?: string, env: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  if (!awsFolder(folder)) return {};
+  const files = awsFiles(folder, env);
+  return { AWS_CONFIG_FILE: files.config, AWS_SHARED_CREDENTIALS_FILE: files.credentials };
+}
+
 // An explicit override must be an absolute (or ~-relative) executable path;
 // otherwise search the PATH built above.
 export function findBinary(name: string, override?: string): string | undefined {

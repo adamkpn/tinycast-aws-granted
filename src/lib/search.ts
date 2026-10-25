@@ -6,7 +6,7 @@ import type { Service } from "./services";
 // dozen loose matches; this scores every item and sorts by score instead.
 
 export interface Prepared {
-  compact: string; // lowercase, alphanumerics only: "plainid-io" -> "plainidio"
+  compact: string; // lowercase, alphanumerics only: "acme-io" -> "acmeio"
   tokens: string[]; // words, camelCase split: "AdministratorAccess" -> administrator, access
   starts: Set<number>; // index in `compact` where each token begins
 }
