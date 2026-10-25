@@ -1,5 +1,9 @@
 # AWS Granted Changelog
 
+## [1.1.0] - 2026-10-25
+
+- Ranked search for profiles, services and regions: best match first, separators ignored, every word must match, account IDs searchable. An exact account alias such as `acmeio` now comes before `acmeio-preprod` and loose matches like `acme-info-dev`.
+
 ## [1.0.0] - 2026-10-17
 
 - Open the AWS Console through Granted's `assume -c`: pick a profile, a region, then a service.

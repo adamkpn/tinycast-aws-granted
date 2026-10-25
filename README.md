@@ -73,6 +73,10 @@ make dev
 3. Pick a region (↵ keeps the one listed first).
 4. Pick a service, or press ⌘ ↵ to go straight to the console home.
 
+### Search
+
+Results are ranked, best match first. An exact name beats a prefix, a prefix beats a whole word, and so on down to loose letter-by-letter matches. Separators don't matter (`acme-io` finds `acmeio`), and every word must match: `io admin` finds the `AdministratorAccess` role of `acmeio`. Profiles match on name, account alias (the part before the first `.`), account ID and region; services on their `-s` value, name and keywords. On equal scores, recent items come first.
+
 ## Preferences
 
 | Preference | Default | What it does |
