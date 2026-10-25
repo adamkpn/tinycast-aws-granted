@@ -14,6 +14,14 @@ updates:
       npm-minor-patch:
         update-types: [minor, patch]
     open-pull-requests-limit: 5
+    ignore:
+      # @raycast/api pins these exactly (peerDependencies); bump them together
+      # with @raycast/api, never on their own.
+      - dependency-name: "@types/node"
+      - dependency-name: "@types/react"
+      # @raycast/eslint-config and typescript-eslint support typescript <6.1.
+      - dependency-name: typescript
+        versions: [">=6.1.0"]
 
   - package-ecosystem: github-actions
     directory: /
