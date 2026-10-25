@@ -73,13 +73,17 @@ make dev
 3. Pick a region (↵ keeps the one listed first).
 4. Pick a service, or press ⌘ ↵ to go straight to the console home.
 
+### Search
+
+Results are ranked, best match first. An exact name beats a prefix, a prefix beats a whole word, and so on down to loose letter-by-letter matches. Separators don't matter (`acme-io` finds `acmeio`), and every word must match: `io admin` finds the `AdministratorAccess` role of `acmeio`. Profiles match on name, account alias (the part before the first `.`), account ID and region; services on their `-s` value, name and keywords. On equal scores, recent items come first.
+
 ## Preferences
 
 | Preference | Default | What it does |
 |---|---|---|
 | Default Region | `us-east-2` | Region used when you don't pick one. Invalid values fall back to `us-east-2`. |
 | Profile Region | off | Use the profile's own `region` from `~/.aws/config` instead of the default. |
-| AWS CLI Profiles | on | Also run `aws configure list-profiles`. Slower; the config files are always read. |
+| AWS CLI Profiles | off | Also run `aws configure list-profiles`. Only needed for profiles the AWS CLI sees but the two config files don't; it starts the Python CLI on every open. |
 | Path to assume | auto | Absolute path to the `assume` binary. Empty means search `/opt/homebrew/bin`, `/usr/local/bin`, then `PATH`. |
 
 `AWS_CONFIG_FILE` and `AWS_SHARED_CREDENTIALS_FILE` are respected.

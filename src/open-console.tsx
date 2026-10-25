@@ -16,6 +16,7 @@ import { assumeCommand, openConsole } from "./lib/granted";
 import { Profile, loadProfilesFromCli, loadProfilesFromFiles, mergeProfiles, profileDebugInfo } from "./lib/profiles";
 import { addRecent, getRecent } from "./lib/recent";
 import { DEFAULT_REGION, isValidRegion, regionsWithDefault } from "./lib/regions";
+import { indexProfile, indexRegion, indexService, rank } from "./lib/search";
 import { SERVICES, Service, findService } from "./lib/services";
 
 const prefs = () => getPreferenceValues<Preferences.OpenConsole>();
@@ -29,24 +30,50 @@ function regionFor(profile: Profile): string {
   return prefs().useProfileRegion && profile.region && isValidRegion(profile.region) ? profile.region : defaultRegion();
 }
 
-function splitWords(name: string): string[] {
-  return name.split(/[-_./\s]+/).filter(Boolean);
+const SERVICE_INDEX = SERVICES.map(indexService);
+
+const byLengthThenName = (a: string, b: string) => a.length - b.length || a.localeCompare(b);
+
+// Tie-break for equal search scores: recent items first, then `fallback`.
+function recentFirst<T>(recent: string[], key: (item: T) => string, fallback: (a: T, b: T) => number) {
+  const recency = (item: T) => {
+    const index = recent.indexOf(key(item));
+    return index === -1 ? recent.length : index;
+  };
+  return (a: T, b: T) => recency(a) - recency(b) || fallback(a, b);
 }
 
+// Set synchronously so a double ↵ can't start a second `assume` (and tab).
+let launching = false;
+
 async function launch(profile: Profile, service: Service | undefined, region: string) {
+  if (launching) return;
+  launching = true;
   const options = { profile: profile.name, service: service?.arg || undefined, region };
   const label = `${profile.name} · ${service?.title ?? "Console Home"} · ${region}`;
-  const toast = await showToast({ style: Toast.Style.Animated, title: "Opening AWS Console…", message: label });
+  let slow: ReturnType<typeof setTimeout> | undefined;
   try {
-    await openConsole(options, prefs().assumePath);
-    await Promise.all([addRecent("profiles", profile.name), service ? addRecent("services", service.id) : undefined]);
-    toast.hide();
-    await showHUD(`Opened ${label}`);
-    await popToRoot();
-  } catch (err) {
-    toast.style = Toast.Style.Failure;
-    toast.title = "assume failed";
-    toast.message = err instanceof Error ? err.message : String(err);
+    const toast = await showToast({ style: Toast.Style.Animated, title: "Opening AWS Console…", message: label });
+    // SSO sign-in can take a while; say so instead of looking frozen.
+    slow = setTimeout(() => {
+      toast.title = "Waiting for Granted…";
+      toast.message = `Finish sign-in in your browser · ${label}`;
+    }, 5_000);
+    try {
+      await openConsole(options, prefs().assumePath);
+      clearTimeout(slow);
+      await Promise.all([addRecent("profiles", profile.name), service ? addRecent("services", service.id) : undefined]);
+      toast.hide();
+      await showHUD(`Opened ${label}`);
+      await popToRoot();
+    } catch (err) {
+      toast.style = Toast.Style.Failure;
+      toast.title = "assume failed";
+      toast.message = err instanceof Error ? err.message : String(err);
+    }
+  } finally {
+    clearTimeout(slow);
+    launching = false;
   }
 }
 
@@ -54,6 +81,7 @@ export default function Command() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [recentNames, setRecentNames] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchText, setSearchText] = useState("");
   const { push } = useNavigation();
 
   useEffect(() => {
@@ -80,6 +108,20 @@ export default function Command() {
     [recentNames, profiles],
   );
   const otherProfiles = useMemo(() => profiles.filter((p) => !recentNames.includes(p.name)), [profiles, recentNames]);
+  const profileIndex = useMemo(() => profiles.map(indexProfile), [profiles]);
+  const results = useMemo(
+    () =>
+      rank(
+        profileIndex,
+        searchText,
+        recentFirst(
+          recentNames,
+          (p: Profile) => p.name,
+          (a, b) => byLengthThenName(a.name, b.name),
+        ),
+      ),
+    [profileIndex, searchText, recentNames],
+  );
 
   const renderProfile = (profile: Profile) => (
     <List.Item
@@ -87,7 +129,6 @@ export default function Command() {
       id={profile.name}
       title={profile.name}
       icon={{ source: "profile.png" }}
-      keywords={splitWords(profile.name)}
       accessories={[
         ...(profile.accountId ? [{ text: profile.accountId, tooltip: "Account ID" }] : []),
         ...(profile.region ? [{ tag: profile.region, tooltip: "Profile region" }] : []),
@@ -137,9 +178,19 @@ export default function Command() {
   );
 
   return (
-    <List isLoading={isLoading} searchBarPlaceholder="Search AWS profiles…" navigationTitle="AWS Granted">
+    <List
+      isLoading={isLoading}
+      filtering={false}
+      onSearchTextChange={setSearchText}
+      searchBarPlaceholder="Search AWS profiles…"
+      navigationTitle="AWS Granted"
+    >
       {!isLoading && profiles.length === 0 ? (
         <List.EmptyView icon={Icon.ExclamationMark} title="No AWS profiles found" description={profileDebugInfo()} />
+      ) : results ? (
+        <List.Section title="Results" subtitle={String(results.length)}>
+          {results.map(renderProfile)}
+        </List.Section>
       ) : (
         <>
           {recentProfiles.length > 0 && <List.Section title="Recent">{recentProfiles.map(renderProfile)}</List.Section>}
@@ -155,6 +206,7 @@ export default function Command() {
 function ServiceList({ profile, region: initialRegion }: { profile: Profile; region: string }) {
   const [region, setRegion] = useState(initialRegion);
   const [recentServices, setRecentServices] = useState<Service[]>([]);
+  const [searchText, setSearchText] = useState("");
   const { push, pop } = useNavigation();
 
   useEffect(() => {
@@ -164,6 +216,19 @@ function ServiceList({ profile, region: initialRegion }: { profile: Profile; reg
   }, []);
 
   const recentIds = new Set(recentServices.map((s) => s.id));
+  const results = useMemo(
+    () =>
+      rank(
+        SERVICE_INDEX,
+        searchText,
+        recentFirst(
+          recentServices.map((s) => s.id),
+          (s: Service) => s.id,
+          (a, b) => byLengthThenName(a.title, b.title),
+        ),
+      ),
+    [searchText, recentServices],
+  );
 
   const renderService = (service: Service, section: string) => (
     <List.Item
@@ -171,7 +236,6 @@ function ServiceList({ profile, region: initialRegion }: { profile: Profile; reg
       title={service.title}
       subtitle={service.arg || undefined}
       icon={{ source: service.icon }}
-      keywords={service.keywords.split(" ")}
       actions={
         <ActionPanel title={service.title}>
           <Action title="Open in Console" icon={Icon.Globe} onAction={() => launch(profile, service, region)} />
@@ -210,15 +274,25 @@ function ServiceList({ profile, region: initialRegion }: { profile: Profile; reg
 
   return (
     <List
+      filtering={false}
+      onSearchTextChange={setSearchText}
       navigationTitle={`${profile.name} · ${region}`}
       searchBarPlaceholder={`Service for ${profile.name} (${region})…`}
     >
-      {recentServices.length > 0 && (
-        <List.Section title="Recent">{recentServices.map((s) => renderService(s, "recent"))}</List.Section>
+      {results ? (
+        <List.Section title="Results" subtitle={String(results.length)}>
+          {results.map((s) => renderService(s, "result"))}
+        </List.Section>
+      ) : (
+        <>
+          {recentServices.length > 0 && (
+            <List.Section title="Recent">{recentServices.map((s) => renderService(s, "recent"))}</List.Section>
+          )}
+          <List.Section title="Services" subtitle={region}>
+            {SERVICES.filter((s) => !recentIds.has(s.id)).map((s) => renderService(s, "all"))}
+          </List.Section>
+        </>
       )}
-      <List.Section title="Services" subtitle={region}>
-        {SERVICES.filter((s) => !recentIds.has(s.id)).map((s) => renderService(s, "all"))}
-      </List.Section>
     </List>
   );
 }
@@ -233,14 +307,25 @@ function RegionList({
   onSelect: (region: string) => void;
 }) {
   const fallback = defaultRegion();
+  const [searchText, setSearchText] = useState("");
+  const regions = useMemo(() => regionsWithDefault(current), [current]);
+  const regionIndex = useMemo(() => regions.map(indexRegion), [regions]);
+  const shown = useMemo(
+    () => rank(regionIndex, searchText, (a, b) => regions.indexOf(a) - regions.indexOf(b)) ?? regions,
+    [regionIndex, regions, searchText],
+  );
   return (
-    <List navigationTitle={`${profile.name} · Region`} searchBarPlaceholder="Search regions…">
-      {regionsWithDefault(current).map((region) => (
+    <List
+      filtering={false}
+      onSearchTextChange={setSearchText}
+      navigationTitle={`${profile.name} · Region`}
+      searchBarPlaceholder="Search regions…"
+    >
+      {shown.map((region) => (
         <List.Item
           key={region}
           title={region}
           icon={{ source: "region.png" }}
-          keywords={region.split("-")}
           accessories={[
             ...(region === current ? [{ icon: Icon.Checkmark, tooltip: "Current" }] : []),
             ...(region === profile.region ? [{ tag: "profile" }] : []),

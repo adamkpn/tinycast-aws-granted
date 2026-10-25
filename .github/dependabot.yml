@@ -1,0 +1,26 @@
+# Weekly dependency PRs. Minor and patch updates are grouped into one PR per
+# ecosystem; majors (e.g. @raycast/api 2.x) arrive one by one for review.
+# The cooldown skips versions published in the last 7 days, so a hijacked
+# release is usually caught and yanked before it is proposed here.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
