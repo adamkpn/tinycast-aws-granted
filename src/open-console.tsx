@@ -43,20 +43,37 @@ function recentFirst<T>(recent: string[], key: (item: T) => string, fallback: (a
   return (a: T, b: T) => recency(a) - recency(b) || fallback(a, b);
 }
 
+// Set synchronously so a double ↵ can't start a second `assume` (and tab).
+let launching = false;
+
 async function launch(profile: Profile, service: Service | undefined, region: string) {
+  if (launching) return;
+  launching = true;
   const options = { profile: profile.name, service: service?.arg || undefined, region };
   const label = `${profile.name} · ${service?.title ?? "Console Home"} · ${region}`;
-  const toast = await showToast({ style: Toast.Style.Animated, title: "Opening AWS Console…", message: label });
+  let slow: ReturnType<typeof setTimeout> | undefined;
   try {
-    await openConsole(options, prefs().assumePath);
-    await Promise.all([addRecent("profiles", profile.name), service ? addRecent("services", service.id) : undefined]);
-    toast.hide();
-    await showHUD(`Opened ${label}`);
-    await popToRoot();
-  } catch (err) {
-    toast.style = Toast.Style.Failure;
-    toast.title = "assume failed";
-    toast.message = err instanceof Error ? err.message : String(err);
+    const toast = await showToast({ style: Toast.Style.Animated, title: "Opening AWS Console…", message: label });
+    // SSO sign-in can take a while; say so instead of looking frozen.
+    slow = setTimeout(() => {
+      toast.title = "Waiting for Granted…";
+      toast.message = `Finish sign-in in your browser · ${label}`;
+    }, 5_000);
+    try {
+      await openConsole(options, prefs().assumePath);
+      clearTimeout(slow);
+      await Promise.all([addRecent("profiles", profile.name), service ? addRecent("services", service.id) : undefined]);
+      toast.hide();
+      await showHUD(`Opened ${label}`);
+      await popToRoot();
+    } catch (err) {
+      toast.style = Toast.Style.Failure;
+      toast.title = "assume failed";
+      toast.message = err instanceof Error ? err.message : String(err);
+    }
+  } finally {
+    clearTimeout(slow);
+    launching = false;
   }
 }
 

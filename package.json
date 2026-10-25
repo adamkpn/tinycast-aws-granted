@@ -52,7 +52,7 @@
       "title": "AWS CLI Profiles",
       "description": "Merge profiles reported by the AWS CLI (slower; the config files are always read).",
       "type": "checkbox",
-      "default": true,
+      "default": false,
       "required": false
     },
     {

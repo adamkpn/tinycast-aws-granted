@@ -1,9 +1,6 @@
 import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { findBinary, toolEnv } from "./env";
 import { isValidRegion } from "./regions";
-
-const execFileAsync = promisify(execFile);
 
 export interface AssumeOptions {
   profile: string;
@@ -45,14 +42,20 @@ export class AssumeNotFoundError extends Error {
 export async function openConsole(options: AssumeOptions, assumePath?: string): Promise<void> {
   const bin = findBinary("assume", assumePath);
   if (!bin) throw new AssumeNotFoundError();
-  try {
-    await execFileAsync(bin, assumeArgs(options), {
-      env: toolEnv({ GRANTED_ALIAS_CONFIGURED: "true" }),
-      timeout: 180_000,
-    });
-  } catch (err) {
-    const { stderr, message } = err as { stderr?: string; message?: string };
-    const detail = (stderr || message || "unknown error").trim().split("\n").slice(-3).join(" ");
-    throw new Error(detail);
-  }
+  const args = assumeArgs(options);
+  await new Promise<void>((resolve, reject) => {
+    const child = execFile(
+      bin,
+      args,
+      { env: toolEnv({ GRANTED_ALIAS_CONFIGURED: "true" }), timeout: 180_000 },
+      (err, _stdout, stderr) => {
+        if (!err) return resolve();
+        const detail = (String(stderr ?? "") || err.message || "unknown error").trim().split("\n").slice(-3).join(" ");
+        reject(new Error(detail));
+      },
+    );
+    // Nobody can answer a Granted prompt here (browser choice, MFA). With
+    // stdin closed it fails at once instead of hanging until the timeout.
+    child.stdin?.end();
+  });
 }

@@ -83,7 +83,7 @@ Results are ranked, best match first. An exact name beats a prefix, a prefix bea
 |---|---|---|
 | Default Region | `us-east-2` | Region used when you don't pick one. Invalid values fall back to `us-east-2`. |
 | Profile Region | off | Use the profile's own `region` from `~/.aws/config` instead of the default. |
-| AWS CLI Profiles | on | Also run `aws configure list-profiles`. Slower; the config files are always read. |
+| AWS CLI Profiles | off | Also run `aws configure list-profiles`. Only needed for profiles the AWS CLI sees but the two config files don't; it starts the Python CLI on every open. |
 | Path to assume | auto | Absolute path to the `assume` binary. Empty means search `/opt/homebrew/bin`, `/usr/local/bin`, then `PATH`. |
 
 `AWS_CONFIG_FILE` and `AWS_SHARED_CREDENTIALS_FILE` are respected.
