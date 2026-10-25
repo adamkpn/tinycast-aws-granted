@@ -1,155 +1,96 @@
-# AWS Granted for Tinycast
+# Granted
 
-Open the AWS Console from [Tinycast](https://github.com/abue-ammar/tinycast) (or Raycast) through [Granted](https://granted.dev). Pick a profile, a region and a service, and the extension runs `assume -c` for you.
+Open the AWS Console signed in with any of your AWS profiles, through [Granted](https://granted.dev)'s `assume -c`. Pick a profile, a region and a service; Granted signs you in and opens the console in your browser.
 
-This is a port of [alfred-aws-granted](https://github.com/adamkpn/alfred-aws-granted). It has the same profiles, services and regions. The one difference: it asks for the region after the profile.
+> Unofficial extension. Not affiliated with Granted, Common Fate, fwd:cloudsec or Amazon Web Services.
 
 ## Features
 
-- Search AWS profiles from `~/.aws/config`, `~/.aws/credentials` and, optionally, `aws configure list-profiles`
+- Ranked search over the profiles in your AWS `config` and `credentials` files: best match first, separators ignored, account IDs searchable
 - 60 console services with their official AWS names and icons, plus the console home
 - All launched commercial, GovCloud and China regions
 - Recent profiles and services listed first
-- Account ID (`sso_account_id` / `granted_sso_account_id`) and profile region shown on each profile
+- Account ID and profile region shown on each profile
 - Copy the profile name or the exact `assume` command
 
-### Key bindings
+## Setup
 
-| Where | Key | Action |
-|---|---|---|
-| Profile | **↵** | Choose a region, then a service |
-| Profile | **⌘ ↵** | Open the console home |
-| Profile | **⌥ ↵** | Skip the region and choose a service |
-| Profile | **⌘ ⇧ Period** | Copy the profile name |
-| Profile, service | **⌘ ⇧ C** | Copy the `assume` command |
-| Service | **↵** | Open the service |
-| Service | **⌘ ↵** | Open the console home |
-| Service | **⌥ ↵** | Change region |
-| Region | **↵** | Select region (the current one is listed first) |
-| Region | **⌘ ↵** | Open the console home in that region |
-
-## Prerequisites
-
-1. macOS with [Tinycast](https://github.com/abue-ammar/tinycast) or [Raycast](https://raycast.com).
-2. Granted installed and configured:
+1. Install Granted:
 
    ```bash
    brew tap fwdcloudsec/granted
    brew install granted
    ```
 
-3. Follow Granted's [Getting Started](https://docs.granted.dev/getting-started/) guide so `assume <profile>` works in a terminal.
-
-## Installation
-
-### Tinycast
-
-**From GitHub:** Settings → Extensions → Install New → **Install from GitHub**, then enter `https://github.com/adamkpn/tinycast-aws-granted`. Tinycast builds it locally.
-
-**From a release:** download `aws-granted-v*.zip` from [Releases](https://github.com/adamkpn/tinycast-aws-granted/releases), unzip it, then Settings → Extensions → Install New → **Add from folder** and pick the `aws-granted` folder. Each zip has a `.sha256` file next to it:
-
-```bash
-shasum -a 256 -c aws-granted-v1.0.0.zip.sha256
-```
-
-**From source** (Node.js 22+): run `make build-dist`, then **Add from folder** and pick `dist/`. Run it again after pulling changes; Tinycast copies the folder instead of linking to it.
-
-### Raycast
-
-The extension is not in the Raycast Store. Install it from source (Node.js 22+):
-
-```bash
-git clone https://github.com/adamkpn/tinycast-aws-granted && cd tinycast-aws-granted
-make install
-make dev
-```
-
-`make dev` loads the extension into Raycast. It stays installed after you stop the dev server.
+2. Follow Granted's [Getting Started](https://docs.granted.dev/getting-started/) guide until `assume -c <profile>` opens the console from a terminal. For AWS IAM Identity Center (SSO), `granted sso populate` adds every account and role to your AWS config.
+3. Run **Open AWS Console**. If your AWS files aren't in `~/.aws`, set **AWS Folder** in the extension preferences.
 
 ## Usage
 
-1. Open Tinycast (or Raycast) and run **Open AWS Console**.
-2. Search for a profile and press ↵.
-3. Pick a region (↵ keeps the one listed first).
-4. Pick a service, or press ⌘ ↵ to go straight to the console home.
+1. Search for a profile and press ↵.
+2. Pick a region. ↵ keeps the one listed first: the profile's region or your default.
+3. Pick a service, or press ⌘↵ to open the console home.
+
+| Where | Key | Action |
+|---|---|---|
+| Profile | ↵ | Choose a region, then a service |
+| Profile | ⌘↵ | Open the console home |
+| Profile | ⌥↵ | Skip the region and choose a service |
+| Profile | ⌘⌥C | Copy the profile name |
+| Profile, service | ⌘⇧C | Copy the `assume` command |
+| Service | ↵ | Open the service |
+| Service | ⌘↵ | Open the console home |
+| Service | ⌥↵ | Change region |
+| Region | ↵ | Select the region |
+| Region | ⌘↵ | Open the console home in that region |
 
 ### Search
 
-Results are ranked, best match first. An exact name beats a prefix, a prefix beats a whole word, and so on down to loose letter-by-letter matches. Separators don't matter (`acme-io` finds `acmeio`), and every word must match: `io admin` finds the `AdministratorAccess` role of `acmeio`. Profiles match on name, account alias (the part before the first `.`), account ID and region; services on their `-s` value, name and keywords. On equal scores, recent items come first.
+Results are ranked, best match first: an exact name beats a prefix, a prefix beats a whole word, and so on down to loose letter-by-letter matches. Separators don't matter (`acme-io` finds `acmeio`), and every word must match: `io admin` finds the `AdministratorAccess` role of `acmeio`. Profiles match on name, account alias (the part before the first `.`), account ID and region; services on their `-s` value, name and keywords. On equal scores, recent items come first.
 
 ## Preferences
 
 | Preference | Default | What it does |
 |---|---|---|
 | Default Region | `us-east-2` | Region used when you don't pick one. Invalid values fall back to `us-east-2`. |
-| Profile Region | off | Use the profile's own `region` from `~/.aws/config` instead of the default. |
-| AWS CLI Profiles | off | Also run `aws configure list-profiles`. Only needed for profiles the AWS CLI sees but the two config files don't; it starts the Python CLI on every open. |
-| Path to assume | auto | Absolute path to the `assume` binary. Empty means search `/opt/homebrew/bin`, `/usr/local/bin`, then `PATH`. |
+| Profile Region | off | Use the profile's own `region` instead of the default region. |
+| AWS Folder | `~/.aws` | Folder with your `config` and `credentials` files. `AWS_CONFIG_FILE` and `AWS_SHARED_CREDENTIALS_FILE` still take precedence when the launcher passes them. `assume` gets the same files. |
+| AWS CLI Profiles | off | Also run `aws configure list-profiles`. Only needed for profiles missing from the config files; it starts the AWS CLI on every open. |
+| Path to Assume | auto | Absolute path to Granted's `assume`. Empty means search `/opt/homebrew/bin`, `/usr/local/bin`, then `PATH`. Only point it at a binary you trust. |
 
-`AWS_CONFIG_FILE` and `AWS_SHARED_CREDENTIALS_FILE` are respected.
+## How This Differs from Amazon AWS
+
+The [Amazon AWS](https://github.com/raycast/extensions/tree/main/extensions/amazon-aws) extension browses resources through the AWS SDK and links to the console. This extension does one thing: open the console **signed in** as the profile you pick.
+
+| | Granted | Amazon AWS |
+|---|---|---|
+| Console link | Signed in as the chosen profile and role (`assume -c`) | Plain console URL in your current browser session |
+| Several accounts at once | One browser session per profile, through Granted | One session, whichever you're signed in to |
+| Credentials | Handled by Granted | AWS SDK, aws-vault or aws-sso |
 
 ## Troubleshooting
 
-**"Granted `assume` not found".** Install Granted, or set **Path to assume** to the output of `which assume`.
+**"Granted `assume` not found".** Install Granted, or set **Path to Assume** to the output of `which assume`.
 
-**"No AWS profiles found".** The empty view shows the config and credentials paths that were read. Check that they exist and contain `[profile name]` (config) or `[name]` (credentials) sections.
+**"No AWS profiles found".** The empty view shows which config and credentials files were read. Check that they exist and contain `[profile name]` (config) or `[name]` (credentials) sections, or set **AWS Folder**.
 
-**"assume failed".** The toast shows the last lines of Granted's error. Run the copied `assume` command in a terminal to see the full output.
+**"assume failed".** The toast shows the last lines of Granted's error. Copy the `assume` command (⌘⇧C) and run it in a terminal to see the full output. Granted can't ask questions here, so answer any prompt (browser choice, MFA) once in a terminal.
 
-## Development
+## Install in Tinycast
 
-Run `make` to list every target. The common ones:
+The extension also runs in [Tinycast](https://github.com/abue-ammar/tinycast):
 
-```bash
-make verify     # build, typecheck, ray lint, tests
-make test       # unit tests for src/lib
-make security   # npm audit, Trivy filesystem scan, Gitleaks (Docker required for the last two)
-make publish    # open a PR to raycast/extensions
-```
+- **From GitHub:** Settings → Extensions → Install New → **Install from GitHub**, then enter `https://github.com/adamkpn/tinycast-aws-granted`.
+- **From a release:** download `granted-v*.zip` from [Releases](https://github.com/adamkpn/tinycast-aws-granted/releases), check it with `shasum -a 256 -c granted-v*.zip.sha256`, unzip it, then **Add from folder** and pick the `granted` folder.
 
-`make lint` runs `ray lint`, which also checks that the `author` in `package.json` is a Raycast Store user. The release workflow runs ESLint and Prettier directly instead.
+## Privacy
 
-```
-src/open-console.tsx   # the command: profile, service and region lists
-src/lib/granted.ts     # builds and runs `assume -c`
-src/lib/profiles.ts    # reads ~/.aws/config, ~/.aws/credentials and the AWS CLI
-src/lib/services.ts    # console services and their `-s` values
-src/lib/regions.ts     # regions and validation
-src/lib/recent.ts      # recent profiles and services (LocalStorage)
-src/lib/env.ts         # PATH, HOME and binary lookup
-.github/workflows/     # release on version tags
-assets/                # extension, profile, region and service icons
-```
-
-## Security
-
-- `assume` and `aws` run through `execFile` with an argument list. No shell is involved.
-- Profile names starting with `-` are skipped so they can't be read by `assume` as flags. Regions are checked against the AWS region format.
-- Relative `PATH` entries are ignored when looking up `assume` and `aws`.
-- The extension never reads credentials. LocalStorage holds only recent profile names and service IDs.
-- **Path to assume** runs whatever binary you point it at. Only set it to a binary you trust.
-
-## Releasing
-
-Add a `## [x.y.z]` section to `CHANGELOG.md`, then push a tag:
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-The release workflow checks, builds and tests the extension, then publishes a GitHub Release with the zip, its SHA-256 checksum and the changelog section as notes.
-
-## Updating services and regions
-
-`src/lib/services.ts` and `src/lib/regions.ts` list their sources at the top: Granted's service map for the `-s` values, the [AWS Regional Services table](https://api.regional-table.region-services.aws.a2z.com/index.json) for names and regions, and the [AWS Architecture Icons](https://aws.amazon.com/architecture/icons/) package for icons. `make test` fails if an icon is missing or unused.
-
-## License
-
-MIT for the code. The service icons come from the AWS Architecture Icons package; AWS and the service names are trademarks of Amazon.com, Inc. or its affiliates.
+The extension reads profile names, account IDs and regions from your AWS config files, never credentials, and makes no network requests. It stores only your recent profile names and service IDs. Signing in is done by Granted.
 
 ## Credits
 
-- [Granted](https://granted.dev) by fwd:cloudsec
-- [alfred-aws-granted](https://github.com/sherifabdlnaby/alfred-aws-granted) by Sherif Abdel-Naby, the original Alfred workflow
-- [Raycast API](https://developers.raycast.com)
+- [Granted](https://granted.dev) by Common Fate and fwd:cloudsec. The icon uses the Granted logo from the [Granted repository](https://github.com/fwdcloudsec/granted) (MIT).
+- Service icons from the [AWS Architecture Icons](https://aws.amazon.com/architecture/icons/) package. AWS and the service names are trademarks of Amazon.com, Inc. or its affiliates.
+- Ported from [alfred-aws-granted](https://github.com/adamkpn/alfred-aws-granted), inspired by [sherifabdlnaby/alfred-aws-granted](https://github.com/sherifabdlnaby/alfred-aws-granted).
+
+Development, releases and the Store process are in [CONTRIBUTING.md](CONTRIBUTING.md). MIT license.

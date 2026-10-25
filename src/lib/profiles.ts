@@ -1,9 +1,7 @@
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { promisify } from "node:util";
-import { findBinary, toolEnv } from "./env";
+import { awsFiles, awsFilesEnv, findBinary, toolEnv } from "./env";
 import { isSafeProfileName } from "./granted";
 
 const execFileAsync = promisify(execFile);
@@ -50,14 +48,6 @@ export function parseProfiles(text: string, source: "config" | "credentials"): P
   return profiles;
 }
 
-export function configPath(): string {
-  return process.env.AWS_CONFIG_FILE || join(homedir(), ".aws", "config");
-}
-
-export function credentialsPath(): string {
-  return process.env.AWS_SHARED_CREDENTIALS_FILE || join(homedir(), ".aws", "credentials");
-}
-
 async function readProfileFile(path: string, source: "config" | "credentials"): Promise<Profile[]> {
   try {
     return parseProfiles(await readFile(path, "utf8"), source);
@@ -83,19 +73,23 @@ export function mergeProfiles(...lists: Profile[][]): Profile[] {
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function loadProfilesFromFiles(): Promise<Profile[]> {
+export async function loadProfilesFromFiles(folder?: string): Promise<Profile[]> {
+  const files = awsFiles(folder);
   const [config, credentials] = await Promise.all([
-    readProfileFile(configPath(), "config"),
-    readProfileFile(credentialsPath(), "credentials"),
+    readProfileFile(files.config, "config"),
+    readProfileFile(files.credentials, "credentials"),
   ]);
   return mergeProfiles(config, credentials);
 }
 
-export async function loadProfilesFromCli(): Promise<Profile[]> {
+export async function loadProfilesFromCli(folder?: string): Promise<Profile[]> {
   const aws = findBinary("aws");
   if (!aws) return [];
   try {
-    const { stdout } = await execFileAsync(aws, ["configure", "list-profiles"], { env: toolEnv(), timeout: 10_000 });
+    const { stdout } = await execFileAsync(aws, ["configure", "list-profiles"], {
+      env: toolEnv(awsFilesEnv(folder)),
+      timeout: 10_000,
+    });
     return stdout
       .split("\n")
       .map((line) => line.trim())
@@ -106,6 +100,7 @@ export async function loadProfilesFromCli(): Promise<Profile[]> {
   }
 }
 
-export function profileDebugInfo(): string {
-  return `config=${configPath()} credentials=${credentialsPath()}`;
+export function profileDebugInfo(folder?: string): string {
+  const files = awsFiles(folder);
+  return `config=${files.config} credentials=${files.credentials}`;
 }

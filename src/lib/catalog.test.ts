@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { homedir } from "node:os";
-import { buildPath, EXTRA_PATH, sessionEnv } from "./env";
+import { awsFiles, awsFilesEnv, buildPath, EXTRA_PATH, sessionEnv } from "./env";
 import { pushRecent } from "./recent-list";
 import { DEFAULT_REGION, REGIONS, isValidRegion, regionsWithDefault } from "./regions";
 import { SERVICES, findService } from "./services";
@@ -71,4 +71,25 @@ test("sessionEnv fills HOME/USER/LOGNAME/TMPDIR when the runtime leaves them out
   assert.ok(env.TMPDIR);
   assert.equal(sessionEnv({ HOME: "/Users/x", USER: "x" }).HOME, "/Users/x");
   assert.equal(sessionEnv({ HOME: "/" }).HOME, homedir());
+});
+
+test("awsFiles: env vars win, then the AWS Folder preference, then ~/.aws", () => {
+  const home = join(homedir(), ".aws");
+  assert.deepEqual(awsFiles(undefined, {}), { config: join(home, "config"), credentials: join(home, "credentials") });
+  assert.deepEqual(awsFiles("/tmp/demo", {}), { config: "/tmp/demo/config", credentials: "/tmp/demo/credentials" });
+  assert.deepEqual(awsFiles("~/alt", {}).config, join(homedir(), "alt", "config"));
+  assert.deepEqual(awsFiles("relative/dir", {}).config, join(home, "config"));
+  assert.deepEqual(awsFiles("/tmp/demo", { AWS_CONFIG_FILE: "/etc/aws-config" }), {
+    config: "/etc/aws-config",
+    credentials: "/tmp/demo/credentials",
+  });
+});
+
+test("awsFilesEnv passes the folder to child processes only when set", () => {
+  assert.deepEqual(awsFilesEnv(undefined, {}), {});
+  assert.deepEqual(awsFilesEnv("  ", {}), {});
+  assert.deepEqual(awsFilesEnv("/tmp/demo", {}), {
+    AWS_CONFIG_FILE: "/tmp/demo/config",
+    AWS_SHARED_CREDENTIALS_FILE: "/tmp/demo/credentials",
+  });
 });

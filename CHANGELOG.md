@@ -1,4 +1,11 @@
-# AWS Granted Changelog
+# Granted Changelog
+
+## [1.2.0] - {PR_MERGE_DATE}
+
+- Renamed to **Granted**, with the Granted logo as the icon. Typing "assume" in the root search also finds it.
+- New **AWS Folder** preference for AWS `config` and `credentials` files outside `~/.aws`. Launchers don't see shell variables such as `AWS_CONFIG_FILE`, so this is how to point the extension elsewhere; `assume` and the AWS CLI get the same files.
+- Searches with no matches now say so instead of showing an empty list.
+- Built with Raycast API 2.9. In Raycast, Copy Profile Name is now ⌘⌥C.
 
 ## [1.1.0] - 2026-10-25
 

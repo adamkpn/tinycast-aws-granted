@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { findBinary, toolEnv } from "./env";
+import { awsFilesEnv, findBinary, toolEnv } from "./env";
 import { isValidRegion } from "./regions";
 
 export interface AssumeOptions {
@@ -39,7 +39,7 @@ export class AssumeNotFoundError extends Error {
   }
 }
 
-export async function openConsole(options: AssumeOptions, assumePath?: string): Promise<void> {
+export async function openConsole(options: AssumeOptions, assumePath?: string, awsFolder?: string): Promise<void> {
   const bin = findBinary("assume", assumePath);
   if (!bin) throw new AssumeNotFoundError();
   const args = assumeArgs(options);
@@ -47,7 +47,7 @@ export async function openConsole(options: AssumeOptions, assumePath?: string): 
     const child = execFile(
       bin,
       args,
-      { env: toolEnv({ GRANTED_ALIAS_CONFIGURED: "true" }), timeout: 180_000 },
+      { env: toolEnv({ GRANTED_ALIAS_CONFIGURED: "true", ...awsFilesEnv(awsFolder) }), timeout: 180_000 },
       (err, _stdout, stderr) => {
         if (!err) return resolve();
         const detail = (String(stderr ?? "") || err.message || "unknown error").trim().split("\n").slice(-3).join(" ");
