@@ -94,5 +94,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test src/lib/*.test.ts",
     "publish": "npx @raycast/api@latest publish"
+  },
+  "overrides": {
+    "minimatch": "^11.0.4"
   }
 }
