@@ -76,6 +76,8 @@ The [Amazon AWS](https://github.com/raycast/extensions/tree/main/extensions/amaz
 
 **"assume failed".** The toast shows the last lines of Granted's error. Copy the `assume` command (⌘⇧C) and run it in a terminal to see the full output. Granted can't ask questions here, so answer any prompt (browser choice, MFA) once in a terminal.
 
+**Firefox shows "Profile Missing", but the same `assume` command works in a terminal.** macOS blocks the launcher from reading Firefox's profile folder (`~/Library/Application Support/Firefox`), so Firefox can't load its profile. Open System Settings → Privacy & Security → Full Disk Access, switch on your launcher (Tinycast or Raycast), then quit and reopen it. This can reappear after Firefox updates. Also check App Management and Files and Folders for the launcher.
+
 ## Install in Tinycast
 
 The extension also runs in [Tinycast](https://github.com/abue-ammar/tinycast):
