@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mergeProfiles, parseProfiles } from "./profiles";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { after } from "node:test";
+import { describeProfileFiles, mergeProfiles, parseProfiles } from "./profiles";
 
 const CONFIG = `
 # comment
@@ -53,4 +57,26 @@ test("mergeProfiles unions by name, keeps first metadata, sorts", () => {
     { name: "a", source: "cli" },
     { name: "prod", source: "config", region: "eu-west-1", accountId: "1" },
   ]);
+});
+
+const dir = mkdtempSync(join(tmpdir(), "granted-profiles-test-"));
+after(() => rmSync(dir, { recursive: true, force: true }));
+
+test("describeProfileFiles says why each file gave no profiles", async () => {
+  writeFileSync(join(dir, "config"), "[default]\n[profile a]\n");
+  assert.equal(
+    await describeProfileFiles(dir, {}),
+    `config: ${dir}/config (2 profiles)\ncredentials: ${dir}/credentials (not found)`,
+  );
+});
+
+test("describeProfileFiles points at Full Disk Access when the file is blocked", async (t) => {
+  if (process.getuid?.() === 0) return t.skip("root ignores file permissions");
+  const blocked = mkdtempSync(join(dir, "blocked-"));
+  writeFileSync(join(blocked, "config"), "[default]\n");
+  chmodSync(join(blocked, "config"), 0o000);
+  assert.match(
+    await describeProfileFiles(blocked, {}),
+    /config: .*\(permission denied; allow your launcher .*Full Disk Access\)/,
+  );
 });

@@ -13,7 +13,13 @@ import {
 } from "@raycast/api";
 import { useEffect, useMemo, useState } from "react";
 import { assumeCommand, openConsole } from "./lib/granted";
-import { Profile, loadProfilesFromCli, loadProfilesFromFiles, mergeProfiles, profileDebugInfo } from "./lib/profiles";
+import {
+  Profile,
+  describeProfileFiles,
+  loadProfilesFromCli,
+  loadProfilesFromFiles,
+  mergeProfiles,
+} from "./lib/profiles";
 import { addRecent, getRecent } from "./lib/recent";
 import { DEFAULT_REGION, isValidRegion, regionsWithDefault } from "./lib/regions";
 import { indexProfile, indexRegion, indexService, rank } from "./lib/search";
@@ -82,6 +88,7 @@ export default function Command() {
   const [recentNames, setRecentNames] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
+  const [fileInfo, setFileInfo] = useState("");
   const { push } = useNavigation();
 
   useEffect(() => {
@@ -91,8 +98,9 @@ export default function Command() {
       if (cancelled) return;
       setProfiles(fromFiles);
       setRecentNames(recent);
+      if (!fromFiles.length) setFileInfo(await describeProfileFiles(prefs().awsFolder));
       // The CLI is slower, so file profiles render first and CLI ones merge in.
-      if (prefs().includeAwsCliProfiles !== false) {
+      if (prefs().includeAwsCliProfiles === true) {
         const fromCli = await loadProfilesFromCli(prefs().awsFolder);
         if (!cancelled && fromCli.length) setProfiles((current) => mergeProfiles(current, fromCli));
       }
@@ -185,11 +193,7 @@ export default function Command() {
       searchBarPlaceholder="Search AWS profiles…"
     >
       {!isLoading && profiles.length === 0 ? (
-        <List.EmptyView
-          icon={Icon.ExclamationMark}
-          title="No AWS profiles found"
-          description={profileDebugInfo(prefs().awsFolder)}
-        />
+        <List.EmptyView icon={Icon.ExclamationMark} title="No AWS profiles found" description={fileInfo} />
       ) : results?.length === 0 ? (
         <List.EmptyView icon={Icon.MagnifyingGlass} title="No Matching Profiles" />
       ) : results ? (

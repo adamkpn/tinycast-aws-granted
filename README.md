@@ -72,7 +72,7 @@ The [Amazon AWS](https://github.com/raycast/extensions/tree/main/extensions/amaz
 
 **"Granted `assume` not found".** Install Granted, or set **Path to Assume** to the output of `which assume`.
 
-**"No AWS profiles found".** The empty view shows which config and credentials files were read. Check that they exist and contain `[profile name]` (config) or `[name]` (credentials) sections, or set **AWS Folder**.
+**"No AWS profiles found".** The empty view lists the config and credentials files it read and why each gave nothing (not found, permission denied, or no profiles). Check that they exist and contain `[profile name]` (config) or `[name]` (credentials) sections, or set **AWS Folder**.
 
 **"assume failed".** The toast shows the last lines of Granted's error. Copy the `assume` command (⌘⇧C) and run it in a terminal to see the full output. Granted can't ask questions here, so answer any prompt (browser choice, MFA) once in a terminal.
 
