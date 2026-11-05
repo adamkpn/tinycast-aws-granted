@@ -13,6 +13,8 @@ make security   # npm audit, Trivy filesystem scan, Gitleaks (Docker for the las
 
 `make lint` runs `ray lint`, which also checks that `author` in `package.json` is a Raycast user. The release workflow runs ESLint and Prettier directly instead.
 
+The `CI` workflow runs the same build, typecheck, lint, test and audit steps on every pull request, and `main` only accepts changes through a pull request with a passing `verify` check. Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
+
 ```
 src/open-console.tsx   # the command: profile, region and service lists
 src/lib/granted.ts     # builds and runs `assume -c`
