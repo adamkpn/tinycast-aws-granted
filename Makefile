@@ -31,8 +31,8 @@ help: ## Show this help
 
 ##@ 📦 Setup
 
-install: ## Install dependencies from the lockfile
-	npm ci
+install: ## Install dependencies from the lockfile (no install scripts, as in CI)
+	npm ci --ignore-scripts
 
 ##@ 🏗️ Build
 

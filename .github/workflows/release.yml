@@ -47,6 +47,10 @@ jobs:
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
+      # Registry signatures and provenance of every installed package.
+      - name: Verify package signatures
+        run: npm audit signatures
+
       # Runs before typecheck: it generates raycast-env.d.ts (Preferences types).
       - name: Build
         run: npx ray build -e dist -o dist
