@@ -100,7 +100,32 @@ export async function loadProfilesFromCli(folder?: string): Promise<Profile[]> {
   }
 }
 
-export function profileDebugInfo(folder?: string): string {
-  const files = awsFiles(folder);
-  return `config=${files.config} credentials=${files.credentials}`;
+function readError(err: unknown): string {
+  const code = (err as NodeJS.ErrnoException | undefined)?.code;
+  if (code === "ENOENT") return "not found";
+  if (code === "EACCES" || code === "EPERM") {
+    return "permission denied; allow your launcher in System Settings > Privacy & Security > Full Disk Access";
+  }
+  return code ?? (err instanceof Error ? err.message : "unreadable");
+}
+
+// One line per AWS file for the "No AWS profiles found" view: the path read
+// and why it gave nothing (missing, blocked by macOS, or just no profiles).
+export async function describeProfileFiles(folder?: string, env: NodeJS.ProcessEnv = process.env): Promise<string> {
+  const files = awsFiles(folder, env);
+  const entries = [
+    ["config", files.config],
+    ["credentials", files.credentials],
+  ] as const;
+  const lines = await Promise.all(
+    entries.map(async ([source, path]) => {
+      try {
+        const count = parseProfiles(await readFile(path, "utf8"), source).length;
+        return `${source}: ${path} (${count} ${count === 1 ? "profile" : "profiles"})`;
+      } catch (err) {
+        return `${source}: ${path} (${readError(err)})`;
+      }
+    }),
+  );
+  return lines.join("\n");
 }

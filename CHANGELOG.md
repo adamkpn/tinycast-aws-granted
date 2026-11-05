@@ -6,6 +6,10 @@
 - New **AWS Folder** preference for AWS `config` and `credentials` files outside `~/.aws`. Launchers don't see shell variables such as `AWS_CONFIG_FILE`, so this is how to point the extension elsewhere; `assume` and the AWS CLI get the same files.
 - Searches with no matches now say so instead of showing an empty list.
 - Built with Raycast API 2.9. In Raycast, Copy Profile Name is now ⌘⌥C.
+- A failed `assume` is no longer reported as "Opened" when Granted prints an error but exits 0 (for example a profile it can't find). The profile isn't added to Recent either.
+- Error messages from Granted no longer contain terminal colour and cursor codes, and a timeout says so instead of showing the command line.
+- **AWS CLI Profiles** now stays off unless you switch it on. Before, a missing value counted as on.
+- "No AWS profiles found" now lists each file with its status: not found, permission denied (macOS privacy), or its profile count.
 
 ## [1.1.0] - 2026-10-25
 

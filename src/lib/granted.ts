@@ -39,7 +39,54 @@ export class AssumeNotFoundError extends Error {
   }
 }
 
-export async function openConsole(options: AssumeOptions, assumePath?: string, awsFolder?: string): Promise<void> {
+export const ASSUME_TIMEOUT_MS = 180_000;
+
+// Granted colours its output and moves the cursor while drawing its profile
+// picker; none of that belongs in a toast.
+export function stripTerminalCodes(text: string): string {
+  let out = "";
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code === 0x1b) {
+      if (text[i + 1] === "[") {
+        i += 2;
+        while (i < text.length && (text.charCodeAt(i) < 0x40 || text.charCodeAt(i) > 0x7e)) i++;
+      } else {
+        i += 1; // two-character sequence such as ESC 7 / ESC 8
+      }
+    } else if (code >= 0x20 || code === 0x0a) {
+      out += text[i];
+    }
+  }
+  return out;
+}
+
+const lines = (text: string) =>
+  stripTerminalCodes(text)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+// Granted prefixes its error lines with "[✘]", and exits 0 after one when it
+// gives up on a prompt (end of input), so the exit code alone can't be trusted.
+const ERROR_MARK = "[✘]";
+
+function failureMessage(errorLines: string[]): string {
+  const detail = errorLines.map((line) => line.replace(ERROR_MARK, "").trim()).join(" ");
+  return detail === "EOF"
+    ? "Granted needed an answer it couldn't get (EOF). Check that the profile exists, or run the copied assume command in a terminal."
+    : detail;
+}
+
+const duration = (ms: number) =>
+  ms >= 60_000 ? `${Math.round(ms / 60_000)} minutes` : `${Math.round(ms / 1000)} seconds`;
+
+export async function openConsole(
+  options: AssumeOptions,
+  assumePath?: string,
+  awsFolder?: string,
+  timeoutMs = ASSUME_TIMEOUT_MS,
+): Promise<void> {
   const bin = findBinary("assume", assumePath);
   if (!bin) throw new AssumeNotFoundError();
   const args = assumeArgs(options);
@@ -47,11 +94,21 @@ export async function openConsole(options: AssumeOptions, assumePath?: string, a
     const child = execFile(
       bin,
       args,
-      { env: toolEnv({ GRANTED_ALIAS_CONFIGURED: "true", ...awsFilesEnv(awsFolder) }), timeout: 180_000 },
+      { env: toolEnv({ GRANTED_ALIAS_CONFIGURED: "true", ...awsFilesEnv(awsFolder) }), timeout: timeoutMs },
       (err, _stdout, stderr) => {
-        if (!err) return resolve();
-        const detail = (String(stderr ?? "") || err.message || "unknown error").trim().split("\n").slice(-3).join(" ");
-        reject(new Error(detail));
+        const output = lines(String(stderr ?? ""));
+        const marked = output.filter((line) => line.includes(ERROR_MARK));
+        if (err?.killed) {
+          return reject(
+            new Error(
+              `Granted did not finish within ${duration(timeoutMs)}. Run the copied assume command in a terminal to see why.`,
+            ),
+          );
+        }
+        if (err)
+          return reject(new Error(output.slice(-3).join(" ") || lines(err.message).join(" ") || "unknown error"));
+        if (marked.length) return reject(new Error(failureMessage(marked)));
+        resolve();
       },
     );
     // Nobody can answer a Granted prompt here (browser choice, MFA). With

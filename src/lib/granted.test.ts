@@ -3,7 +3,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { assumeArgs, assumeCommand, isSafeProfileName, openConsole } from "./granted";
+import { assumeArgs, assumeCommand, isSafeProfileName, openConsole, stripTerminalCodes } from "./granted";
 
 test("assumeArgs builds -c/-s/-r in Granted's order", () => {
   assert.deepEqual(assumeArgs({ profile: "prod", service: "lambda", region: "eu-west-1" }), [
@@ -63,4 +63,36 @@ test("openConsole fails fast when assume waits for an answer", async () => {
   const started = Date.now();
   await assert.rejects(openConsole(OPTIONS, bin), /prompt: no input/);
   assert.ok(Date.now() - started < 5000);
+});
+
+test("stripTerminalCodes removes colour and cursor sequences", () => {
+  assert.equal(stripTerminalCodes("\x1b[0;31m[\u2718] EOF\x1b[0m"), "[\u2718] EOF");
+  assert.equal(stripTerminalCodes("a\x1b7\x1b[1A\x1b[0G\x1b8\x1b[?25hb\r\n"), "ab\n");
+});
+
+test("openConsole strips terminal codes from the error message", async () => {
+  const bin = fakeAssume("ansi", "printf '\\033[0;31mbad profile\\033[0m\\n' >&2; exit 1");
+  await assert.rejects(openConsole(OPTIONS, bin), (err: Error) => err.message === "bad profile");
+});
+
+test("openConsole fails when assume prints an error but exits 0", async () => {
+  // Granted's picker gives up on end of input with "[\u2718] EOF" and exit code 0.
+  const bin = fakeAssume(
+    "eof",
+    "printf '\\033[0;39m  prod\\033[0m\\n\\033[0;31m[\\342\\234\\230] EOF\\033[0m\\n' >&2; exit 0",
+  );
+  await assert.rejects(openConsole(OPTIONS, bin), /needed an answer it couldn't get/);
+  const other = fakeAssume("marked", "echo '[\u2718] profile not found' >&2");
+  await assert.rejects(openConsole(OPTIONS, other), (err: Error) => err.message === "profile not found");
+});
+
+test("openConsole ignores other stderr output when assume succeeds", async () => {
+  await openConsole(OPTIONS, fakeAssume("noisy", "echo 'warning: something' >&2"));
+});
+
+test("openConsole explains a timeout instead of showing the command line", async () => {
+  const bin = fakeAssume("slow", "exec sleep 5");
+  const started = Date.now();
+  await assert.rejects(openConsole(OPTIONS, bin, undefined, 300), /did not finish within \d+ seconds/);
+  assert.ok(Date.now() - started < 4000);
 });
