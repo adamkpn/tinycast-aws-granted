@@ -15,6 +15,8 @@ make security   # npm audit, Trivy filesystem scan, Gitleaks (Docker for the las
 
 The `CI` workflow runs the same build, typecheck, lint, test and audit steps on every pull request, and `main` only accepts changes through a pull request with a passing `verify` check. Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 
+`@raycast/api` pins exact `@types/node` and `@types/react` versions as peer dependencies, and Dependabot is told to skip those two packages. When its `@raycast/api` pull request fails the typecheck with a JSX error, update them to the new peers (`npm view @raycast/api peerDependencies`) with `npm install -D -E @types/node@<version> @types/react@<version>`.
+
 ```
 src/open-console.tsx   # the command: profile, region and service lists
 src/lib/granted.ts     # builds and runs `assume -c`

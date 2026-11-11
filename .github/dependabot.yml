@@ -16,7 +16,8 @@ updates:
     open-pull-requests-limit: 5
     ignore:
       # @raycast/api pins these exactly (peerDependencies); bump them together
-      # with @raycast/api, never on their own.
+      # with @raycast/api, never on their own. An @raycast/api PR that fails the
+      # typecheck needs them updated by hand (see CONTRIBUTING.md).
       - dependency-name: "@types/node"
       - dependency-name: "@types/react"
       # @raycast/eslint-config and typescript-eslint support typescript <6.1.
