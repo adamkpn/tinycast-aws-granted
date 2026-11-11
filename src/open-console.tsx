@@ -4,9 +4,10 @@ import {
   Icon,
   Keyboard,
   List,
+  PopToRootType,
   Toast,
+  closeMainWindow,
   getPreferenceValues,
-  popToRoot,
   showHUD,
   showToast,
   useNavigation,
@@ -71,7 +72,9 @@ async function launch(profile: Profile, service: Service | undefined, region: st
       await Promise.all([addRecent("profiles", profile.name), service ? addRecent("services", service.id) : undefined]);
       toast.hide();
       await showHUD(`Opened ${label}`);
-      await popToRoot();
+      // Raycast closes the window on popToRoot; Tinycast navigates to its root
+      // search instead, so close the window explicitly.
+      await closeMainWindow({ clearRootSearch: true, popToRootType: PopToRootType.Immediate });
     } catch (err) {
       toast.style = Toast.Style.Failure;
       toast.title = "assume failed";

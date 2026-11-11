@@ -1,5 +1,9 @@
 # Granted Changelog
 
+## [1.2.1] - {PR_MERGE_DATE}
+
+- After opening the console the launcher window now closes. In Tinycast it used to return to the root search.
+
 ## [1.2.0] - {PR_MERGE_DATE}
 
 - Renamed to **Granted**, with the Granted logo as the icon. Typing "assume" in the root search also finds it.
